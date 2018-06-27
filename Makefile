@@ -225,7 +225,10 @@ julia-base-cache: julia-sysimg-$(JULIA_BUILD_MODE) | $(DIRS) $(build_datarootdir
 		$(call cygpath_w,$(build_datarootdir)/julia/base.cache))
 
 # public libraries, that are installed in $(prefix)/lib
-JL_LIBS := julia julia-debug
+JL_LIBS := julia
+ifeq ($(BUNDLE_DEBUG_LIBS),1)
+JL_LIBS += julia-debug
+endif
 
 # private libraries, that are installed in $(prefix)/lib/julia
 JL_PRIVATE_LIBS-0 := libccalltest
@@ -320,21 +323,27 @@ install: $(build_depsbindir)/stringreplace $(BUILDROOT)/doc/_build/html/en/index
 		mkdir -p $(DESTDIR)$$subdir; \
 	done
 
-	$(INSTALL_M) $(build_bindir)/julia* $(DESTDIR)$(bindir)/
+	$(INSTALL_M) $(build_bindir)/julia $(DESTDIR)$(bindir)/
+ifeq ($(BUNDLE_DEBUG_LIBS),1)
+	$(INSTALL_M) $(build_bindir)/julia-debug $(DESTDIR)$(bindir)/
+endif
 ifeq ($(OS),WINNT)
 	-$(INSTALL_M) $(build_bindir)/*.dll $(DESTDIR)$(bindir)/
 	-$(INSTALL_M) $(build_libdir)/libjulia.dll.a $(DESTDIR)$(libdir)/
+ifeq ($(BUNDLE_DEBUG_LIBS),1)
 	-$(INSTALL_M) $(build_libdir)/libjulia-debug.dll.a $(DESTDIR)$(libdir)/
+endif
 	-$(INSTALL_M) $(build_bindir)/libopenlibm.dll.a $(DESTDIR)$(libdir)/
 else
 ifeq ($(OS),Darwin)
-	# Copy over .dSYM directories directly
+ifeq ($(BUNDLE_DEBUG_LIBS),1)
+# Copy over .dSYM directories directly
 	-cp -a $(build_libdir)/*.dSYM $(DESTDIR)$(libdir)
 	-cp -a $(build_private_libdir)/*.dSYM $(DESTDIR)$(private_libdir)
 endif
-
+endif
 	for suffix in $(JL_LIBS) ; do \
-		for lib in $(build_libdir)/lib$${suffix}*.$(SHLIB_EXT)*; do \
+		for lib in $(build_libdir)/lib$${suffix}.$(SHLIB_EXT)*; do \
 			if [ "$${lib##*.}" != "dSYM" ]; then \
 				$(INSTALL_M) $$lib $(DESTDIR)$(libdir) ; \
 			fi \
@@ -357,7 +366,9 @@ endif
 	cp -R -L $(build_includedir)/julia/* $(DESTDIR)$(includedir)/julia
 	# Copy system image
 	$(INSTALL_M) $(build_private_libdir)/sys.$(SHLIB_EXT) $(DESTDIR)$(private_libdir)
+ifeq ($(BUNDLE_DEBUG_LIBS),1)
 	$(INSTALL_M) $(build_private_libdir)/sys-debug.$(SHLIB_EXT) $(DESTDIR)$(private_libdir)
+endif
 	# Copy in system image build script
 	$(INSTALL_M) $(JULIAHOME)/contrib/build_sysimg.jl $(DESTDIR)$(datarootdir)/julia/
 	# Copy in all .jl sources as well
@@ -395,9 +406,11 @@ endif
 
 	# Overwrite JL_SYSTEM_IMAGE_PATH in julia library
 	$(call stringreplace,$(DESTDIR)$(libdir)/libjulia.$(SHLIB_EXT),sys.$(SHLIB_EXT)$$,$(private_libdir_rel)/sys.$(SHLIB_EXT))
+ifeq ($(BUNDLE_DEBUG_LIBS),1)
 	$(call stringreplace,$(DESTDIR)$(libdir)/libjulia-debug.$(SHLIB_EXT),sys-debug.$(SHLIB_EXT)$$,$(private_libdir_rel)/sys-debug.$(SHLIB_EXT))
 endif
 
+endif
 	# On FreeBSD, remove the build's libdir from each library's RPATH
 ifeq ($(OS),FreeBSD)
 	$(JULIAHOME)/contrib/fixup-rpath.sh $(build_depsbindir)/patchelf $(DESTDIR)$(libdir) $(build_libdir)
