@@ -331,8 +331,10 @@ function tmerge(@nospecialize(typea), @nospecialize(typeb))
         # XXX: this should never happen
         return Any
     end
-    # it's always ok to form a Union of two concrete types
-    if (isconcretetype(typea) || isType(typea)) && (isconcretetype(typeb) || isType(typeb))
+    # it's always ok to form a Union of two Union-free types
+    # however, for Tuples, we fall through to below code delegating to tuplemerge
+    if unioncomplexity(typea) == 0 && unioncomplexity(typeb) == 0 &&
+        !(typea <: Tuple && typeb <: Tuple && (!isconcretetype(typea) || !isconcretetype(typeb)))
         return Union{typea, typeb}
     end
     # collect the list of types from past tmerge calls returning Union
